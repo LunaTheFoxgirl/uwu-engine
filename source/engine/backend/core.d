@@ -21,7 +21,7 @@ extern(C) void uwuLogCallback (WGPULogLevel level, const(char)* message, void* u
     writeln(level, ": ", message.fromStringz);
 }
 
-void uwuInit() {
+void uwuInitRenderer() {
     // Load SDL and WGPU
     auto sdlSupport = loadSDL();
     auto wgpuSupport = loadWGPU();
@@ -38,8 +38,8 @@ void uwuInit() {
 
     // Minimum limits need to be specified manually with wgpu native
     WGPURequiredLimits limits;
-    limits.limits.maxTextureDimension1D = 2048;
-    limits.limits.maxTextureDimension2D = 2048;
+    limits.limits.maxTextureDimension1D = 4096;
+    limits.limits.maxTextureDimension2D = 4096;
     limits.limits.maxTextureDimension3D = 256;
     limits.limits.maxTextureArrayLayers = 256;
     limits.limits.maxBindGroups = 4;
@@ -78,7 +78,7 @@ void uwuInit() {
     wgpuSetLogCallback(&uwuLogCallback, null);
 }
 
-void uwuCleanup() {
+void uwuCleanupRenderer() {
     wgpuInstanceDrop(uwuInstance);
 }
 

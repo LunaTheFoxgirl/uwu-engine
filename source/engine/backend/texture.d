@@ -9,6 +9,8 @@ import engine.backend.core;
 import imagefmt;
 import bindbc.wgpu;
 import std.exception;
+import std.container.binaryheap;
+import engine.utils;
 
 class Texture {
 private:
@@ -33,7 +35,7 @@ private:
         texDesc.mipLevelCount = 1;
         texDesc.sampleCount = 1;
         texDesc.dimension = WGPUTextureDimension.D2;
-        texDesc.format = WGPUTextureFormat.RGBA8UnormSrgb;
+        texDesc.format = WGPUTextureFormat.RGBA8Unorm;
         texDesc.usage = WGPUTextureUsage.CopySrc | WGPUTextureUsage.CopyDst | WGPUTextureUsage.TextureBinding;
         texDesc.size = WGPUExtent3D(width, height, 1);
         texture = wgpuDeviceCreateTexture(uwuDevice, &texDesc);
@@ -54,13 +56,18 @@ private:
         layout.rowsPerImage = image.h;
         layout.offset = 0;
 
+        WGPUExtent3D copySize;
+        copySize.width = image.w;
+        copySize.height = image.h;
+        copySize.depthOrArrayLayers = 1;
+
         wgpuQueueWriteTexture(
             uwuQueue,
             &dest,
             image.buf8.ptr,
             image.buf8.length,
             &layout,
-            &texDesc.size
+            &copySize
         );
     }
 
@@ -131,6 +138,20 @@ public:
     */
     void setSubData(IFImage image, int x, int y) {
         this.uploadTextureData(image, x, y);
+    }
+
+    /**
+        Sets a subsection of the texture data as RGBA values
+    */
+    void setSubData(ubyte[] data, int x, int y, int width, int height) {
+        IFImage nimg;
+        nimg.buf8 = data;
+        nimg.w = width;
+        nimg.h = height;
+        nimg.c = 4;
+        nimg.bpc = 8;
+        nimg.e = 0;
+        this.uploadTextureData(nimg, x, y);
     }
 
     /**

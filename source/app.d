@@ -5,7 +5,7 @@
     Authors: Luna the Foxgirl
 */
 import std.stdio;
-import engine.backend;
+import engine;
 import game.mygame;
 
 void main()

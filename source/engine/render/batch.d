@@ -11,6 +11,8 @@ import engine.render.camera;
 import engine.window;
 import std.exception;
 import bindbc.wgpu;
+import engine.font.font;
+import engine.font.fatlas;
 
 class SpriteBatch {
 private:
@@ -138,6 +140,52 @@ public:
     }
 
     /**
+        Draws a texture with the sprite batcher
+    */
+    void draw(Font font, string text, uint size, vec2 position, vec4 color = vec4(1, 1, 1, 1)) {
+        if (font.getTexture() != currentTexture) {
+            if (currentTexture) flush();
+            currentTexture = font.getTexture();
+            
+            currentShader.setTextureLayout(0, currentTexture);
+            currentShader.setUniBufferLayout(1, currentCamera.getBuffer);
+        }
+
+        font.buffer(text, size);
+
+        vec2 cpos = position;
+        GlyphInfo c;
+        while(font.next(c)) {
+
+            if (c.newline) {
+                cpos.x = position.x;
+                cpos.y += c.newlineHeight;
+            } else if (c.item) {
+
+                // Flush out if we're at the end of the buffer
+                if (batchIdx+6 >= elements.length) {
+                    flush();
+                    rollover();
+                }
+
+                // Add the next character
+                addSprite(
+                    rect(
+                        cpos.x-c.offset.x,
+                        cpos.y-c.offset.y,
+                        c.item.area.width,
+                        c.item.area.height
+                    ),
+                    c.item.uvarea,
+                    color
+                );
+                cpos += c.advance;
+            } else cpos += c.advance;
+
+        }
+    }
+
+    /**
         Ends a sprite batcher pass
     */
     void end() {
@@ -155,6 +203,9 @@ public:
         Flushes sprite batch
     */
     void flush() {
+        int torender = cast(int)(batchIdx-batchBeginIdx);
+        if (torender == 0) return;
+    
         WGPURenderPassEncoder pass = wgpuCommandEncoderBeginRenderPass(encoder, 
             new WGPURenderPassDescriptor(
                 null,
@@ -174,7 +225,7 @@ public:
             )
         );
 
-        buffers[buffIdx].setData(elements[batchBeginIdx..batchIdx], 0);
+        buffers[buffIdx].setData(elements[batchBeginIdx..batchIdx], batchBeginIdx*BatchItem.sizeof);
         currentShader.setTexture(0, currentTexture);
         currentShader.setUniBuffer(1, currentCamera.getBuffer);
         currentShader.setVtxBuffer(buffers[buffIdx]);
@@ -182,10 +233,13 @@ public:
         currentShader.setCulling(WGPUCullMode.None);
         currentShader.setBlendFunc(WGPUBlendFactor.SrcAlpha, WGPUBlendFactor.OneMinusSrcAlpha);
 
+
         cache.usePipeline(pass, currentShader, parentWindow.getSurface());
-        wgpuRenderPassEncoderSetVertexBuffer(pass, 0, buffers[buffIdx].getBuffer(), batchBeginIdx, (batchIdx-batchBeginIdx)*BatchItem.sizeof);
-        wgpuRenderPassEncoderDraw(pass, cast(int)batchIdx, 1, 0, 0);
+        wgpuRenderPassEncoderSetVertexBuffer(pass, 0, buffers[buffIdx].getBuffer(), batchBeginIdx*BatchItem.sizeof, torender*BatchItem.sizeof);
+        wgpuRenderPassEncoderDraw(pass, torender, 1, 0, 0);
         wgpuRenderPassEncoderEnd(pass);
+
         batchBeginIdx = batchIdx;
+        batchIdx = batchBeginIdx;
     }
 }
